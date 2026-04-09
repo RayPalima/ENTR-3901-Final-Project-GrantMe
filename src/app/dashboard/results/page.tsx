@@ -534,15 +534,6 @@ export default function ResultsPage() {
         >
           Ineligible ({results.ineligible.length})
         </button>
-        {debug.length > 0 && (
-          <button
-            onClick={() => setActiveTab("debug")}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "debug" ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20" : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"}`}
-          >
-            <Bug className="w-3.5 h-3.5" />
-            Agent Debug ({debug.length})
-          </button>
-        )}
       </div>
 
       {/* Eligible Tab */}
