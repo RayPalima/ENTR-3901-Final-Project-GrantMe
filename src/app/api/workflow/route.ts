@@ -101,12 +101,136 @@ function ts() {
   return new Date().toISOString();
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateProposalContent(parsed: unknown): ProposalContent | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+  if (
+    isNonEmptyString(obj.introduction) &&
+    isNonEmptyString(obj.objectives) &&
+    isNonEmptyString(obj.methodology) &&
+    isNonEmptyString(obj.budget)
+  ) {
+    return {
+      introduction: obj.introduction,
+      objectives: obj.objectives,
+      methodology: obj.methodology,
+      budget: obj.budget,
+    };
+  }
+  return null;
+}
+
+function validateCheatSheetContent(parsed: unknown): CheatSheetContent | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+  if (
+    isNonEmptyString(obj.personalObjective) &&
+    isNonEmptyString(obj.researchFocus) &&
+    isNonEmptyString(obj.methodology) &&
+    isNonEmptyString(obj.qualifications) &&
+    isNonEmptyString(obj.useOfFunds)
+  ) {
+    return {
+      personalObjective: obj.personalObjective,
+      researchFocus: obj.researchFocus,
+      methodology: obj.methodology,
+      qualifications: obj.qualifications,
+      useOfFunds: obj.useOfFunds,
+    };
+  }
+  return null;
+}
+
+async function generateDraftWithRecovery(
+  mode: "full_proposal" | "cheat_sheet",
+  grantName: string,
+  prompt: string,
+): Promise<{
+  ok: boolean;
+  content?: ProposalContent | CheatSheetContent;
+  rawOutput?: string;
+  reason?: string;
+  attempts: number;
+}> {
+  const baseSystem =
+    mode === "full_proposal"
+      ? `You are an expert academic grant proposal writer. Output ONLY valid JSON with EXACT keys: "introduction", "objectives", "methodology", "budget". No markdown, no prose outside JSON.`
+      : `You are an expert academic grant writer. Output ONLY valid JSON with EXACT keys: "personalObjective", "researchFocus", "methodology", "qualifications", "useOfFunds". No markdown, no prose outside JSON. STRICTLY respect word limits.`;
+
+  let lastRaw = "";
+  let lastReason = "unknown";
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const { text } = await generateText({
+        model: getModel(),
+        system: baseSystem,
+        prompt,
+      });
+      lastRaw = text;
+      const parsed = extractJSON(text);
+      const validated =
+        mode === "full_proposal"
+          ? validateProposalContent(parsed)
+          : validateCheatSheetContent(parsed);
+
+      if (validated) {
+        return {
+          ok: true,
+          content: validated,
+          rawOutput: text,
+          attempts: attempt,
+        };
+      }
+
+      lastReason = "schema_error";
+
+      if (attempt === 1) {
+        const { text: repaired } = await generateText({
+          model: getModel(),
+          system:
+            "Repair invalid JSON to strictly valid JSON for the required schema. Output ONLY JSON. Do not add explanations.",
+          prompt: `Grant: ${grantName}\nMode: ${mode}\nInvalid output:\n${text}\n\nReturn fixed JSON only.`,
+        });
+        lastRaw = repaired;
+        const repairedParsed = extractJSON(repaired);
+        const repairedValidated =
+          mode === "full_proposal"
+            ? validateProposalContent(repairedParsed)
+            : validateCheatSheetContent(repairedParsed);
+        if (repairedValidated) {
+          return {
+            ok: true,
+            content: repairedValidated,
+            rawOutput: repaired,
+            attempts: 2,
+          };
+        }
+        lastReason = "parse_error";
+      }
+    } catch (e) {
+      lastReason = `provider_error: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  return {
+    ok: false,
+    rawOutput: lastRaw,
+    reason: lastReason,
+    attempts: 2,
+  };
+}
+
 // ── Agent 1: Program Scout (GrantData.ca API) ──────────────────────────────────
 
 async function agentProgramScout(
   profile: AcademicProfile,
   baseUrl: string,
-  debug: AgentDebugEntry[]
+  debug: AgentDebugEntry[],
 ): Promise<GrantResult[]> {
   const params = new URLSearchParams();
   if (profile.fieldOfStudy) params.set("field", profile.fieldOfStudy);
@@ -147,14 +271,15 @@ async function agentProgramScout(
 
 async function agentDeepResearcher(
   grants: GrantResult[],
-  debug: AgentDebugEntry[]
+  debug: AgentDebugEntry[],
 ): Promise<ResearchResult[]> {
   const serpKey = process.env.SERP_API_KEY;
   const results: ResearchResult[] = [];
 
   for (const grant of grants) {
     let serpSnippets: string[] = [];
-    let applicationFormat: "document_upload" | "online_portal" = "online_portal";
+    let applicationFormat: "document_upload" | "online_portal" =
+      "online_portal";
     let liveRequirements: string[] = [];
 
     const searchName = grant.program_en || grant.department;
@@ -165,10 +290,10 @@ async function agentDeepResearcher(
     if (serpKey) {
       try {
         const query = encodeURIComponent(
-          `"${searchName}" Canada grant eligibility requirements application how to apply 2024 2025`
+          `"${searchName}" Canada grant eligibility requirements application how to apply 2024 2025`,
         );
         const serpRes = await fetch(
-          `https://serpapi.com/search.json?q=${query}&api_key=${serpKey}&num=5`
+          `https://serpapi.com/search.json?q=${query}&api_key=${serpKey}&num=5`,
         );
         if (serpRes.ok) {
           const serpData = await serpRes.json();
@@ -199,11 +324,16 @@ async function agentDeepResearcher(
         if (parsed && typeof parsed === "object" && parsed !== null) {
           const obj = parsed as Record<string, unknown>;
           liveRequirements = (obj.requirements as string[]) ?? [];
-          applicationFormat = obj.format === "document_upload" ? "document_upload" : "online_portal";
+          applicationFormat =
+            obj.format === "document_upload"
+              ? "document_upload"
+              : "online_portal";
         } else {
           debugStatus = "fallback";
           debugError = `Could not parse LLM JSON. Raw: ${text.slice(0, 500)}`;
-          liveRequirements = [`Government of Canada ${searchName} grant program`];
+          liveRequirements = [
+            `Government of Canada ${searchName} grant program`,
+          ];
         }
       } catch (e) {
         debugStatus = "error";
@@ -211,7 +341,8 @@ async function agentDeepResearcher(
         liveRequirements = [`Government of Canada ${searchName} grant program`];
       }
     } else {
-      debugStatus = serpSnippets.length === 0 && !debugError ? "fallback" : "error";
+      debugStatus =
+        serpSnippets.length === 0 && !debugError ? "fallback" : "error";
       liveRequirements = [
         "Canadian citizen, permanent resident, or studying at a Canadian institution",
         `Relevant to ${grant.department} sector`,
@@ -224,7 +355,11 @@ async function agentDeepResearcher(
       grantName: searchName,
       input: `SERP search: "${searchName}" eligibility requirements`,
       rawOutput: rawLLMOutput || `SERP snippets: ${serpSnippets.length} found`,
-      parsed: { liveRequirements, applicationFormat, serpSnippetCount: serpSnippets.length },
+      parsed: {
+        liveRequirements,
+        applicationFormat,
+        serpSnippetCount: serpSnippets.length,
+      },
       status: debugStatus,
       error: debugError,
       timestamp: ts(),
@@ -241,7 +376,7 @@ async function agentDeepResearcher(
 async function agentGatekeeper(
   profile: AcademicProfile,
   researchResults: ResearchResult[],
-  debug: AgentDebugEntry[]
+  debug: AgentDebugEntry[],
 ): Promise<EligibilityResult[]> {
   const results: EligibilityResult[] = [];
 
@@ -278,14 +413,19 @@ Evaluate whether this university student is eligible for this grant. Be strict a
       });
 
       rawText = text;
-      console.log(`[Agent 3] Raw response for "${grantName}":`, text.slice(0, 500));
+      console.log(
+        `[Agent 3] Raw response for "${grantName}":`,
+        text.slice(0, 500),
+      );
 
       const parsed = extractJSON(text);
 
       if (parsed && typeof parsed === "object" && parsed !== null) {
         const obj = parsed as Record<string, unknown>;
         const eligible = obj.eligible === true;
-        const reasons = Array.isArray(obj.reasons) ? (obj.reasons as string[]) : [];
+        const reasons = Array.isArray(obj.reasons)
+          ? (obj.reasons as string[])
+          : [];
 
         debug.push({
           agent: "Gatekeeper",
@@ -304,13 +444,18 @@ Evaluate whether this university student is eligible for this grant. Be strict a
           researchData: research,
         });
       } else {
-        console.error(`[Agent 3] Failed to parse JSON for "${grantName}". Raw:`, text);
+        console.error(
+          `[Agent 3] Failed to parse JSON for "${grantName}". Raw:`,
+          text,
+        );
 
         const lowerText = text.toLowerCase();
         const likelyEligible =
           lowerText.includes('"eligible": true') ||
           lowerText.includes('"eligible":true') ||
-          (lowerText.includes("eligible") && !lowerText.includes("ineligible") && !lowerText.includes("not eligible"));
+          (lowerText.includes("eligible") &&
+            !lowerText.includes("ineligible") &&
+            !lowerText.includes("not eligible"));
 
         debug.push({
           agent: "Gatekeeper",
@@ -326,13 +471,20 @@ Evaluate whether this university student is eligible for this grant. Be strict a
         results.push({
           grant: research.grant,
           eligible: likelyEligible,
-          reasons: likelyEligible ? [] : [`Could not fully parse eligibility. Raw AI response: "${text.slice(0, 300)}"`],
+          reasons: likelyEligible
+            ? []
+            : [
+                `Could not fully parse eligibility. Raw AI response: "${text.slice(0, 300)}"`,
+              ],
           researchData: research,
         });
       }
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
-      console.error(`[Agent 3] Gatekeeper exception for "${grantName}":`, errMsg);
+      console.error(
+        `[Agent 3] Gatekeeper exception for "${grantName}":`,
+        errMsg,
+      );
 
       debug.push({
         agent: "Gatekeeper",
@@ -362,7 +514,7 @@ Evaluate whether this university student is eligible for this grant. Be strict a
 async function agentDrafter(
   profile: AcademicProfile,
   eligibleGrants: EligibilityResult[],
-  debug: AgentDebugEntry[]
+  debug: AgentDebugEntry[],
 ): Promise<DraftResult[]> {
   const drafts: DraftResult[] = [];
 
@@ -372,10 +524,10 @@ async function agentDrafter(
 
     if (format === "document_upload") {
       try {
-        const { text } = await generateText({
-          model: getModel(),
-          system: `You are an expert academic grant proposal writer. Generate a compelling, well-structured academic proposal for a Canadian university student. Respond with ONLY valid JSON, no markdown fences. Keys: "introduction", "objectives", "methodology", "budget". Each 150-300 words.`,
-          prompt: `Write a full academic grant proposal for a student applying to "${grantName}" (Value: $${result.grant.agreement_value?.toLocaleString()}).
+        const generation = await generateDraftWithRecovery(
+          "full_proposal",
+          grantName,
+          `Write a full academic grant proposal for a student applying to "${grantName}" (Value: $${result.grant.agreement_value?.toLocaleString()}).
 
 Student Profile:
 - University: ${profile.university}
@@ -389,23 +541,32 @@ Sections:
 2. "objectives" - Clear research/project objectives
 3. "methodology" - Proposed methodology or approach
 4. "budget" - Justified use of funds breakdown`,
-        });
+        );
 
-        const parsed = extractJSON(text);
-        if (parsed && typeof parsed === "object") {
-          const content = parsed as ProposalContent;
+        if (generation.ok && generation.content) {
           debug.push({
             agent: "The Drafter",
             grantName,
             input: `Full proposal for "${grantName}"`,
-            rawOutput: text.slice(0, 1000),
-            parsed: { format: "full_proposal", sections: Object.keys(content) },
+            rawOutput: (generation.rawOutput ?? "").slice(0, 1000),
+            parsed: {
+              format: "full_proposal",
+              sections: Object.keys(generation.content),
+              attempts: generation.attempts,
+            },
             status: "success",
             timestamp: ts(),
           });
-          drafts.push({ grantId: result.grant.record_id, grantName, format: "full_proposal", content });
+          drafts.push({
+            grantId: result.grant.record_id,
+            grantName,
+            format: "full_proposal",
+            content: generation.content,
+          });
         } else {
-          throw new Error(`JSON parse failed. Raw: ${text.slice(0, 300)}`);
+          throw new Error(
+            `Draft generation failed after retries (${generation.reason ?? "unknown"}). Raw: ${(generation.rawOutput ?? "").slice(0, 300)}`,
+          );
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -420,16 +581,26 @@ Sections:
           timestamp: ts(),
         });
         drafts.push({
-          grantId: result.grant.record_id, grantName, format: "full_proposal",
-          content: { introduction: `Error generating proposal: ${errMsg}`, objectives: "", methodology: "", budget: "" },
+          grantId: result.grant.record_id,
+          grantName,
+          format: "full_proposal",
+          content: {
+            introduction: "Draft generation failed. Please retry this grant.",
+            objectives:
+              "System could not generate structured objectives on this run.",
+            methodology:
+              "System could not generate methodology on this run.",
+            budget:
+              "System could not generate budget breakdown on this run.",
+          },
         });
       }
     } else {
       try {
-        const { text } = await generateText({
-          model: getModel(),
-          system: `You are an expert academic grant writer. Generate copy-paste-ready portal answers for a Canadian university student. Respond with ONLY valid JSON, no markdown fences. Keys: "personalObjective" (max 100 words), "researchFocus" (max 250 words), "methodology" (max 250 words), "qualifications" (max 150 words), "useOfFunds" (max 200 words). STRICTLY respect every word limit.`,
-          prompt: `Write portal-ready answers for a student applying to "${grantName}" (Value: $${result.grant.agreement_value?.toLocaleString()}).
+        const generation = await generateDraftWithRecovery(
+          "cheat_sheet",
+          grantName,
+          `Write portal-ready answers for a student applying to "${grantName}" (Value: $${result.grant.agreement_value?.toLocaleString()}).
 
 Student Profile:
 - University: ${profile.university}
@@ -444,23 +615,32 @@ Sections with STRICT word limits:
 3. "methodology" - Proposed Methodology/Action Plan (MAX 250 words)
 4. "qualifications" - Academic Qualifications & Leadership (MAX 150 words)
 5. "useOfFunds" - Use of Funds (MAX 200 words)`,
-        });
+        );
 
-        const parsed = extractJSON(text);
-        if (parsed && typeof parsed === "object") {
-          const content = parsed as CheatSheetContent;
+        if (generation.ok && generation.content) {
           debug.push({
             agent: "The Drafter",
             grantName,
             input: `Cheat sheet for "${grantName}"`,
-            rawOutput: text.slice(0, 1000),
-            parsed: { format: "cheat_sheet", sections: Object.keys(content) },
+            rawOutput: (generation.rawOutput ?? "").slice(0, 1000),
+            parsed: {
+              format: "cheat_sheet",
+              sections: Object.keys(generation.content),
+              attempts: generation.attempts,
+            },
             status: "success",
             timestamp: ts(),
           });
-          drafts.push({ grantId: result.grant.record_id, grantName, format: "cheat_sheet", content });
+          drafts.push({
+            grantId: result.grant.record_id,
+            grantName,
+            format: "cheat_sheet",
+            content: generation.content,
+          });
         } else {
-          throw new Error(`JSON parse failed. Raw: ${text.slice(0, 300)}`);
+          throw new Error(
+            `Draft generation failed after retries (${generation.reason ?? "unknown"}). Raw: ${(generation.rawOutput ?? "").slice(0, 300)}`,
+          );
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -475,8 +655,21 @@ Sections with STRICT word limits:
           timestamp: ts(),
         });
         drafts.push({
-          grantId: result.grant.record_id, grantName, format: "cheat_sheet",
-          content: { personalObjective: `Error: ${errMsg}`, researchFocus: "", methodology: "", qualifications: "", useOfFunds: "" },
+          grantId: result.grant.record_id,
+          grantName,
+          format: "cheat_sheet",
+          content: {
+            personalObjective:
+              "Draft generation failed. Please retry this grant.",
+            researchFocus:
+              "System could not generate this section on this run.",
+            methodology:
+              "System could not generate this section on this run.",
+            qualifications:
+              "System could not generate this section on this run.",
+            useOfFunds:
+              "System could not generate this section on this run.",
+          },
         });
       }
     }
@@ -495,8 +688,11 @@ export async function POST(request: NextRequest) {
 
     if (!profile || !profile.fieldOfStudy || !profile.degreeLevel) {
       return NextResponse.json(
-        { error: "Incomplete profile. Please fill in Field of Study and Degree Level." },
-        { status: 400 }
+        {
+          error:
+            "Incomplete profile. Please fill in Field of Study and Degree Level.",
+        },
+        { status: 400 },
       );
     }
 
@@ -517,7 +713,11 @@ export async function POST(request: NextRequest) {
     const researchResults = await agentDeepResearcher(grants, debug);
 
     // Agent 3: Gatekeeper (Eligibility Fork)
-    const eligibilityResults = await agentGatekeeper(profile, researchResults, debug);
+    const eligibilityResults = await agentGatekeeper(
+      profile,
+      researchResults,
+      debug,
+    );
     const eligible = eligibilityResults.filter((r) => r.eligible);
     const ineligible = eligibilityResults.filter((r) => !r.eligible);
 
@@ -548,7 +748,7 @@ export async function POST(request: NextRequest) {
     console.error("[Workflow Error]", error);
     return NextResponse.json(
       { error: `Workflow error: ${errMsg}`, debug },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
