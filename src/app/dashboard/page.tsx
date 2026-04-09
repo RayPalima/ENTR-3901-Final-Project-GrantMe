@@ -29,6 +29,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"review" | "edit">("review");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [initialEmail, setInitialEmail] = useState("");
   const [profile, setProfile] = useState<ProfileData>({
     firstName: "",
     lastName: "",
@@ -46,6 +48,8 @@ export default function DashboardPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+      setAccountEmail(user.email ?? "");
+      setInitialEmail(user.email ?? "");
 
       const { data } = await supabase
         .from("profiles")
@@ -112,6 +116,21 @@ export default function DashboardPage() {
       return;
     }
 
+    const normalizedEmail = accountEmail.trim();
+    if (normalizedEmail && normalizedEmail !== initialEmail) {
+      const { error: emailError } = await supabase.auth.updateUser({
+        email: normalizedEmail,
+      });
+      if (emailError) {
+        console.error("Error updating email:", emailError);
+        alert(`Profile saved, but email update failed: ${emailError.message}`);
+        setSaving(false);
+        return;
+      }
+      setInitialEmail(normalizedEmail);
+      alert("Profile saved. Please check your new email inbox to confirm the email change.");
+    }
+
     localStorage.setItem("grantme_profile", JSON.stringify(profile));
     setSaving(false);
     setMode("review");
@@ -167,6 +186,7 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
+                  { label: "Email", value: accountEmail || "—" },
                   { label: "First Name", value: profile.firstName || "—" },
                   { label: "Last Name", value: profile.lastName || "—" },
                   { label: "Age", value: profile.age || "—" },
@@ -271,6 +291,18 @@ export default function DashboardPage() {
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-[0.75rem] font-medium text-slate-500 uppercase tracking-wider">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      className="w-full bg-slate-50 border-none rounded-xl py-4 px-5 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#005d90]/30 transition-all"
+                      placeholder="e.g. name@school.edu"
+                      value={accountEmail}
+                      onChange={(e) => setAccountEmail(e.target.value)}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <label className="text-[0.75rem] font-medium text-slate-500 uppercase tracking-wider">
                       First Name
