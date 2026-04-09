@@ -2,33 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { signOut } from "@/app/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import {
-  FolderOpen,
   FileText,
   ShieldCheck,
-  Users,
-  BarChart3,
-  HelpCircle,
+  Bookmark,
   LogOut,
-  Bell,
-  Settings,
-  Plus,
   GraduationCap,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "Workspace", icon: FolderOpen },
-  { href: "/dashboard/workflow", label: "AI Agents", icon: FileText },
-  { href: "/dashboard/results", label: "Results", icon: ShieldCheck },
-];
-
 const sidebarItems = [
-  { href: "/dashboard", label: "Workspace", icon: FolderOpen },
-  { href: "/dashboard/workflow", label: "AI Agents", icon: FileText },
+  { href: "/dashboard", label: "Profile", icon: GraduationCap },
+  { href: "/dashboard/workflow", label: "Search", icon: FileText },
   { href: "/dashboard/results", label: "Results", icon: ShieldCheck },
-  { href: "#", label: "Team", icon: Users },
-  { href: "#", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/saved", label: "Saved", icon: Bookmark },
 ];
 
 export function DashboardShell({
@@ -39,68 +30,86 @@ export function DashboardShell({
   userEmail: string;
 }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [fullName, setFullName] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("grantme_sidebar_collapsed");
+      if (saved === "1") setCollapsed(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    async function loadName() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("user_id", user.id)
+        .single();
+      const first = data?.first_name?.trim() ?? "";
+      const last = data?.last_name?.trim() ?? "";
+      const name = `${first} ${last}`.trim();
+      if (name) {
+        setFullName(name);
+      }
+    }
+    loadName();
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("grantme_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* TopNavBar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-8 h-16">
-        <div className="flex items-center gap-8">
-          <span className="text-2xl font-bold tracking-tight text-blue-900">
-            GrantMe
-          </span>
-          <div className="hidden md:flex gap-6 items-center">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`text-sm tracking-wide font-medium transition-colors ${
-                  pathname === item.href
-                    ? "text-blue-700 border-b-2 border-blue-600 pb-1"
-                    : "text-slate-600 hover:text-blue-800"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-all active:scale-95">
-            <Bell className="w-5 h-5" />
-          </button>
-          <button className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-all active:scale-95">
-            <Settings className="w-5 h-5" />
-          </button>
-          <div className="h-8 w-8 rounded-full overflow-hidden bg-[#0077b6] flex items-center justify-center text-white text-xs font-bold">
-            {userEmail.charAt(0).toUpperCase()}
-          </div>
-        </div>
-      </nav>
-
       {/* SideNavBar */}
-      <aside className="fixed left-0 top-0 h-full w-64 pt-16 bg-white border-r border-slate-100 flex-col px-4 space-y-2 hidden lg:flex">
+      <aside
+        className={`fixed left-0 top-0 h-full bg-white border-r border-slate-100 flex-col px-3 space-y-2 hidden lg:flex transition-[width] duration-200 ${
+          collapsed ? "w-[76px]" : "w-64"
+        }`}
+      >
         <div className="py-6 px-2">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 bg-[#0077b6] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#005d90]/20">
+          <div className={`flex items-center mb-6 ${collapsed ? "justify-center" : "gap-3"}`}>
+            <div className="h-10 w-10 bg-[#0077b6] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#005d90]/20 flex-shrink-0">
               <GraduationCap className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-xs uppercase tracking-widest font-semibold text-blue-900">
-                University Portal
-              </h3>
-              <p className="text-[10px] text-slate-500 font-medium">
-                Grant Workspace
-              </p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <h3 className="text-xs uppercase tracking-widest font-semibold text-blue-900">
+                  GrantMe
+                </h3>
+              </div>
+            )}
           </div>
 
-          <Link
-            href="/dashboard"
-            className="w-full py-3 bg-gradient-to-br from-[#005d90] to-[#0077b6] text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-xl shadow-[#005d90]/10 mb-8 active:scale-95 transition-transform"
-          >
-            <Plus className="w-4 h-4" />
-            New Grant Application
-          </Link>
+          <div className="flex items-center justify-end mb-6">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className={`p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-all active:scale-95 ${
+                collapsed ? "mx-auto" : ""
+              }`}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+            </button>
+          </div>
 
           <nav className="space-y-1">
             {sidebarItems.map((item) => {
@@ -110,16 +119,28 @@ export function DashboardShell({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 hover:translate-x-1 ${
+                  className={`flex items-center py-3 rounded-xl transition-all duration-300 hover:translate-x-1 ${
+                    collapsed ? "justify-center px-0" : "px-3 gap-4"
+                  } ${
                     isActive
                       ? "bg-slate-50 text-blue-700 shadow-sm"
                       : "text-slate-500 hover:bg-slate-50"
                   }`}
+                  title={collapsed ? item.label : undefined}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-xs uppercase tracking-widest font-semibold">
-                    {item.label}
+                  <span
+                    className={`flex items-center justify-center flex-shrink-0 ${
+                      collapsed ? "w-11 h-11 rounded-2xl bg-slate-50 border border-slate-100" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <Icon className="w-6 h-6" />
                   </span>
+                  {!collapsed && (
+                    <span className="text-xs uppercase tracking-widest font-semibold">
+                      {item.label}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -127,31 +148,61 @@ export function DashboardShell({
         </div>
 
         <div className="mt-auto pb-8 px-2 space-y-1">
-          <a
-            href="#"
-            className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
-          >
-            <HelpCircle className="w-5 h-5" />
-            <span className="text-xs uppercase tracking-widest font-semibold">
-              Help Center
-            </span>
-          </a>
           <form action={signOut}>
             <button
               type="submit"
-              className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all w-full"
+              className={`flex items-center px-3 py-3 text-slate-500 hover:bg-slate-50 rounded-xl transition-all w-full ${
+                collapsed ? "justify-center" : "gap-3"
+              }`}
+              title={collapsed ? "Logout" : undefined}
             >
               <LogOut className="w-5 h-5" />
-              <span className="text-xs uppercase tracking-widest font-semibold">
-                Logout
-              </span>
+              {!collapsed && (
+                <span className="text-xs uppercase tracking-widest font-semibold">
+                  Logout
+                </span>
+              )}
             </button>
           </form>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="lg:ml-64 pt-24 px-8 pb-12 min-h-screen bg-white">
+      <main
+        className={`px-8 pb-12 min-h-screen bg-white transition-[margin] duration-200 ${
+          collapsed ? "lg:ml-[76px]" : "lg:ml-64"
+        } pt-10`}
+      >
+        <div className="flex justify-end mb-6">
+          <div className="relative inline-block text-left">
+            <details className="group">
+              <summary className="list-none flex items-center gap-2 cursor-pointer">
+                <div className="h-8 w-8 rounded-full overflow-hidden bg-[#0077b6] flex items-center justify-center text-white text-xs font-bold">
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium text-slate-700 hidden md:inline-block">
+                  {fullName || userEmail}
+                </span>
+              </summary>
+              <div className="absolute right-0 mt-2 w-40 rounded-xl bg-white shadow-lg border border-slate-100 py-2 z-20">
+                <Link
+                  href="/dashboard"
+                  className="block px-4 py-2 text-xs uppercase tracking-widest font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Go to Profile
+                </Link>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="w-full text-left px-4 py-2 text-xs uppercase tracking-widest font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Logout
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
+        </div>
         {children}
       </main>
     </div>

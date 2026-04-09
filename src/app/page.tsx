@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Sparkles,
   FileText,
-  ArrowRight,
   Search,
   ShieldCheck,
   BookOpen,
@@ -17,7 +16,7 @@ export default function LandingPage() {
         <div className="hidden md:flex items-center space-x-8">
           <a href="#features" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Features</a>
           <a href="#stats" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Results</a>
-          <a href="#cta" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Get Started</a>
+          <Link href="/auth?mode=signup" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Get Started</Link>
         </div>
         <Link href="/auth" className="px-5 py-2 rounded-xl bg-gradient-to-br from-[#005d90] to-[#0077b6] text-white font-semibold text-sm shadow-lg shadow-[#005d90]/20 hover:translate-y-[-1px] transition-all active:scale-95">
           Sign In
@@ -66,9 +65,8 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-2xl font-semibold">Precision Grant Matching</h3>
                 <p className="text-[#475569] leading-relaxed">
-                  Our AI agents query the Canadian Federal Grant Database (4M+
-                  records) to find real funding programs matching your field of
-                  study and degree level.
+                  Our AI agents query live grant APIs to find funding programs
+                  matching your field of study and degree level.
                 </p>
               </div>
               <div className="mt-8 rounded-xl overflow-hidden bg-slate-50 p-4">
@@ -126,7 +124,7 @@ export default function LandingPage() {
                   <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-300" />
                   <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-400" />
                 </div>
-                <span className="text-xs font-medium text-[#475569]">Trusted by students nationwide</span>
+                <span className="text-xs font-medium text-[#475569]">Built for Canadian students</span>
               </div>
             </div>
 
@@ -139,10 +137,6 @@ export default function LandingPage() {
                   From undergrad research to doctoral dissertations, we provide
                   the AI-powered backbone for your academic funding journey.
                 </p>
-                <a href="#cta" className="text-[#005d90] font-bold inline-flex items-center gap-2 group">
-                  Learn about our methodology
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </a>
               </div>
             </div>
           </div>
@@ -150,7 +144,7 @@ export default function LandingPage() {
 
         {/* Stats */}
         <section id="stats" className="py-24 bg-white border-y border-slate-50">
-          <div className="max-w-7xl mx-auto px-8 grid grid-cols-2 md:grid-cols-4 gap-12">
+          <div className="max-w-7xl mx-auto px-8 grid grid-cols-2 md:grid-cols-3 gap-12">
             <div className="text-center space-y-2">
               <p className="text-4xl font-bold text-[#005d90]">4M+</p>
               <p className="text-sm uppercase tracking-widest text-slate-500 font-semibold">Grant Records</p>
@@ -158,10 +152,6 @@ export default function LandingPage() {
             <div className="text-center space-y-2">
               <p className="text-4xl font-bold text-[#005d90]">$7.9B</p>
               <p className="text-sm uppercase tracking-widest text-slate-500 font-semibold">NSERC Funded</p>
-            </div>
-            <div className="text-center space-y-2">
-              <p className="text-4xl font-bold text-[#005d90]">88%</p>
-              <p className="text-sm uppercase tracking-widest text-slate-500 font-semibold">Match Accuracy</p>
             </div>
             <div className="text-center space-y-2">
               <p className="text-4xl font-bold text-[#005d90]">4</p>
@@ -181,8 +171,8 @@ export default function LandingPage() {
             <p className="text-white/70 text-lg mb-10 max-w-xl mx-auto">
               Join the platform where funding meets focus. Get started for free today.
             </p>
-            <Link href="/auth" className="bg-[#0077b6] text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-[#005d90] transition-all shadow-lg shadow-black/20 inline-block">
-              Create Free Account
+            <Link href="/auth?mode=signup" className="bg-[#0077b6] text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-[#005d90] transition-all shadow-lg shadow-black/20 inline-block">
+              Get Started
             </Link>
           </div>
         </section>
@@ -190,11 +180,6 @@ export default function LandingPage() {
 
       <footer className="px-8 py-12 border-t border-slate-100 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
         <span className="text-xl font-bold tracking-tight text-blue-900">GrantMe</span>
-        <div className="flex gap-8">
-          <a href="#" className="text-xs uppercase tracking-widest font-semibold text-slate-500 hover:text-[#005d90] transition-colors">Privacy</a>
-          <a href="#" className="text-xs uppercase tracking-widest font-semibold text-slate-500 hover:text-[#005d90] transition-colors">Terms</a>
-          <a href="#" className="text-xs uppercase tracking-widest font-semibold text-slate-500 hover:text-[#005d90] transition-colors">Contact</a>
-        </div>
         <p className="text-xs font-medium text-slate-400">© 2026 GrantMe. All rights reserved.</p>
       </footer>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   AlertTriangle,
   Copy,
@@ -20,6 +21,7 @@ import {
   Search,
   BarChart3,
   Shield,
+  Bookmark,
 } from "lucide-react";
 
 interface GrantResult {
@@ -30,6 +32,10 @@ interface GrantResult {
   program_en: string;
   agreement_type: string;
   start_date: string;
+}
+
+interface SavedGrantRow {
+  grant_record_id: string;
 }
 
 interface ProposalContent {
@@ -70,6 +76,10 @@ interface WorkflowResults {
   eligible: EligibleResult[];
   ineligible: IneligibleResult[];
 }
+
+type SavePayload =
+  | { kind: "eligible"; data: EligibleResult }
+  | { kind: "ineligible"; data: IneligibleResult };
 
 interface AgentDebugEntry {
   agent: string;
@@ -391,6 +401,8 @@ export default function ResultsPage() {
   const [results, setResults] = useState<WorkflowResults | null>(null);
   const [debug, setDebug] = useState<AgentDebugEntry[]>([]);
   const [activeTab, setActiveTab] = useState<string>("eligible");
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("grantme_results");
@@ -403,11 +415,71 @@ export default function ResultsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    async function loadSaved() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("saved_grants")
+        .select("grant_record_id")
+        .eq("user_id", user.id);
+      if (error) return;
+      const ids = new Set((data as SavedGrantRow[] | null)?.map((r) => r.grant_record_id) ?? []);
+      setSavedIds(ids);
+    }
+    loadSaved();
+  }, []);
+
+  async function toggleSaved(payloadData: SavePayload) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const grant = payloadData.data.grant;
+    const id = grant.record_id;
+    const isSaved = savedIds.has(id);
+    setSavingId(id);
+    try {
+      if (isSaved) {
+        const { error } = await supabase
+          .from("saved_grants")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("grant_record_id", id);
+        if (error) return;
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } else {
+        const payload = {
+          user_id: user.id,
+          grant_record_id: id,
+          grant_name: grant.program_en ?? null,
+          department: grant.department ?? null,
+          agreement_value: grant.agreement_value ?? null,
+          agreement_type: grant.agreement_type ?? null,
+          start_date: grant.start_date ?? null,
+          grant_data: payloadData,
+        };
+        const { error } = await supabase
+          .from("saved_grants")
+          .upsert(payload, { onConflict: "user_id,grant_record_id" });
+        if (error) return;
+        setSavedIds((prev) => new Set(prev).add(id));
+      }
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   if (!results) {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="mb-10">
-          <h1 className="text-5xl font-bold tracking-tight text-slate-900 mb-2">Grant Results</h1>
+          <h1 className="text-5xl font-bold tracking-tight text-slate-900 mb-2">Most Recent Search Results</h1>
           <p className="text-slate-600 max-w-lg leading-relaxed">Results from your latest AI agent workflow will appear here.</p>
         </div>
         <div className="bg-slate-50 rounded-[2rem] p-16 text-center border border-slate-100">
@@ -430,7 +502,7 @@ export default function ResultsPage() {
     <div className="max-w-6xl mx-auto">
       <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-2">Grant Results</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-2">Most Recent Search Results</h1>
           <p className="text-slate-600 max-w-lg leading-relaxed">
             {results.totalGrantsFound} grants found. {results.eligible.length} eligible, {results.ineligible.length} ineligible.
           </p>
@@ -483,6 +555,8 @@ export default function ResultsPage() {
           ) : (
             results.eligible.map((result) => {
               const grantName = result.grant.program_en || result.grant.department;
+              const isSaved = savedIds.has(result.grant.record_id);
+              const isSaving = savingId === result.grant.record_id;
               return (
                 <div key={result.grant.record_id} className="space-y-6">
                   <div className="bg-gradient-to-br from-[#005d90] to-[#0077b6] rounded-xl p-6 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl shadow-[#005d90]/10">
@@ -496,9 +570,25 @@ export default function ResultsPage() {
                       <h3 className="text-xl font-bold">{grantName}</h3>
                       <p className="text-blue-100 text-sm mt-1">{result.grant.department} — {result.grant.agreement_type}</p>
                     </div>
-                    <div className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold border border-white/20">
-                      <TrendingUp className="w-4 h-4 inline mr-1" />
-                      ${result.grant.agreement_value?.toLocaleString()}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleSaved({ kind: "eligible", data: result })}
+                        disabled={isSaving}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${
+                          isSaved
+                            ? "bg-white text-[#005d90] border-white/60"
+                            : "bg-white/10 text-white border-white/20 hover:bg-white/15"
+                        } ${isSaving ? "opacity-60" : ""}`}
+                        aria-label={isSaved ? "Unsave grant" : "Save grant"}
+                        title={isSaved ? "Saved" : "Save"}
+                      >
+                        <Bookmark className={`w-4 h-4 ${isSaved ? "fill-[#005d90]" : ""}`} />
+                      </button>
+                      <div className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold border border-white/20">
+                        <TrendingUp className="w-4 h-4 inline mr-1" />
+                        ${result.grant.agreement_value?.toLocaleString()}
+                      </div>
                     </div>
                   </div>
                   {result.draft && (
@@ -522,9 +612,31 @@ export default function ResultsPage() {
               <p className="text-emerald-700 font-semibold">Great news — you&apos;re eligible for all matched grants.</p>
             </div>
           ) : (
-            results.ineligible.map((result) => (
-              <IneligibleAlert key={result.grant.record_id} result={result} />
-            ))
+            results.ineligible.map((result) => {
+              const isSaved = savedIds.has(result.grant.record_id);
+              const isSaving = savingId === result.grant.record_id;
+              return (
+                <div key={result.grant.record_id} className="relative">
+                  <div className="absolute right-6 top-6 z-10">
+                    <button
+                      type="button"
+                      onClick={() => toggleSaved({ kind: "ineligible", data: result })}
+                      disabled={isSaving}
+                      className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${
+                        isSaved
+                          ? "bg-white text-[#005d90] border-white/60"
+                          : "bg-white/10 text-white border-white/20 hover:bg-white/15"
+                      } ${isSaving ? "opacity-60" : ""}`}
+                      aria-label={isSaved ? "Unsave grant" : "Save grant"}
+                      title={isSaved ? "Saved" : "Save"}
+                    >
+                      <Bookmark className={`w-4 h-4 ${isSaved ? "fill-[#005d90]" : ""}`} />
+                    </button>
+                  </div>
+                  <IneligibleAlert result={result} />
+                </div>
+              );
+            })
           )}
         </div>
       )}

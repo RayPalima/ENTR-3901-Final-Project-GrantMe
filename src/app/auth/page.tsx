@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
-export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+function AuthInner() {
+  const searchParams = useSearchParams();
+  const modeParam = searchParams.get("mode");
+  const [isLogin, setIsLogin] = useState(modeParam === "signup" ? false : true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +50,33 @@ export default function AuthPage() {
     setLoading(false);
   }
 
+  async function handleForgotPassword() {
+    if (!email) {
+      setError("Enter your email first to reset your password.");
+      return;
+    }
+    const supabase = createClient();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/auth`
+          : undefined;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+      if (error) {
+        setError(error.message);
+      } else {
+        setMessage("Password reset email sent. Check your inbox.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="bg-white min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative blurs */}
@@ -74,34 +103,7 @@ export default function AuthPage() {
             </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/10 p-4 rounded-xl backdrop-blur-md border border-white/10">
-                <div className="text-2xl font-bold">500+</div>
-                <div className="text-xs uppercase tracking-widest opacity-70">
-                  Grants Indexed
-                </div>
-              </div>
-              <div className="bg-white/10 p-4 rounded-xl backdrop-blur-md border border-white/10">
-                <div className="text-2xl font-bold">$2.4M</div>
-                <div className="text-xs uppercase tracking-widest opacity-70">
-                  Capital Matched
-                </div>
-              </div>
-            </div>
-            <div className="pt-4 border-t border-white/10">
-              <p className="text-sm italic opacity-60">
-                &ldquo;GrantMe matched us with a $250K innovation grant
-                we didn&apos;t even know existed.&rdquo;
-              </p>
-              <div className="mt-2 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/20" />
-                <span className="text-xs font-medium">
-                  Sarah K., UofT Founder
-                </span>
-              </div>
-            </div>
-          </div>
+          <div />
         </section>
 
         {/* Form Side */}
@@ -155,6 +157,7 @@ export default function AuthPage() {
                 {isLogin && (
                   <button
                     type="button"
+                    onClick={handleForgotPassword}
                     className="text-xs font-bold text-[#005d90] hover:underline"
                   >
                     Forgot?
@@ -225,17 +228,23 @@ export default function AuthPage() {
       </main>
 
       {/* Footer */}
-      <footer className="absolute bottom-6 left-0 w-full px-6 flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-slate-400">
-        <div className="flex gap-6">
-          <span className="hover:text-[#005d90] cursor-pointer transition-colors">
-            Privacy Policy
-          </span>
-          <span className="hover:text-[#005d90] cursor-pointer transition-colors">
-            Terms of Service
-          </span>
-        </div>
+      <footer className="absolute bottom-6 left-0 w-full px-6 flex justify-end items-center text-[10px] uppercase tracking-[0.2em] text-slate-400">
         <div>© 2026 GrantMe</div>
       </footer>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-[#005d90] border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <AuthInner />
+    </Suspense>
   );
 }
