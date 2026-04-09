@@ -1,24 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import {
   FileText,
-  ShieldCheck,
+  Search as SearchIcon,
   Bookmark,
   LogOut,
-  GraduationCap,
+  User,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 
 const sidebarItems = [
-  { href: "/dashboard", label: "Profile", icon: GraduationCap },
-  { href: "/dashboard/workflow", label: "Search", icon: FileText },
-  { href: "/dashboard/results", label: "Results", icon: ShieldCheck },
+  { href: "/dashboard", label: "Profile", icon: User },
+  { href: "/dashboard/workflow", label: "Search", icon: SearchIcon },
+  { href: "/dashboard/results", label: "Results", icon: FileText },
   { href: "/dashboard/saved", label: "Saved", icon: Bookmark },
 ];
 
@@ -86,9 +87,13 @@ export function DashboardShell({
       >
         <div className="py-6 px-2">
           <div className={`flex items-center mb-6 ${collapsed ? "justify-center" : "gap-3"}`}>
-            <div className="h-10 w-10 bg-[#0077b6] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#005d90]/20 flex-shrink-0">
-              <GraduationCap className="w-5 h-5" />
-            </div>
+            <Image
+              src="/grantme-logo.png"
+              alt="GrantMe logo"
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-xl object-contain bg-white p-1 border border-slate-100 shadow-md shadow-[#005d90]/15 flex-shrink-0 contrast-125 saturate-150"
+            />
             {!collapsed && (
               <div className="min-w-0">
                 <Link

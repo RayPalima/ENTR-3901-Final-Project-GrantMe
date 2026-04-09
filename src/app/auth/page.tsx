@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 function AuthInner() {
@@ -88,9 +89,8 @@ function AuthInner() {
         <section className="hidden md:flex flex-col justify-between p-12 bg-gradient-to-br from-[#005d90] to-[#0077b6] text-white">
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-8">
-              <span className="text-2xl font-bold tracking-tight">
-                GrantMe
-              </span>
+              <Image src="/grantme-logo.png" alt="GrantMe logo" width={30} height={30} className="h-8 w-8 object-contain contrast-125 saturate-150" />
+              <span className="text-2xl font-bold tracking-tight">GrantMe</span>
             </div>
             <h1 className="text-4xl font-bold leading-tight tracking-tight">
               Your Academic
@@ -110,9 +110,12 @@ function AuthInner() {
         <section className="p-8 md:p-16 flex flex-col justify-center bg-white">
           <div className="mb-10 text-center md:text-left">
             <div className="md:hidden flex justify-center mb-6">
-              <span className="text-2xl font-bold tracking-tight text-[#005d90]">
-                GrantMe
-              </span>
+              <div className="flex items-center gap-2">
+                <Image src="/grantme-logo.png" alt="GrantMe logo" width={30} height={30} className="h-8 w-8 object-contain contrast-125 saturate-150" />
+                <span className="text-2xl font-bold tracking-tight text-[#005d90]">
+                  GrantMe
+                </span>
+              </div>
             </div>
             <h2 className="text-2xl font-semibold text-[#0f172a] mb-2">
               {isLogin ? "Welcome back" : "Create your account"}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Sparkles,
   FileText,
@@ -12,7 +13,10 @@ export default function LandingPage() {
     <div className="bg-white text-[#0f172a] selection:bg-[#0077b6] selection:text-white">
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-8 h-16">
-        <span className="text-2xl font-bold tracking-tight text-blue-900">GrantMe</span>
+        <div className="flex items-center gap-2">
+          <Image src="/grantme-logo.png" alt="GrantMe logo" width={32} height={32} className="h-8 w-8 object-contain contrast-125 saturate-150" />
+          <span className="text-2xl font-bold tracking-tight text-blue-900">GrantMe</span>
+        </div>
         <div className="hidden md:flex items-center space-x-8">
           <a href="#features" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Features</a>
           <a href="#stats" className="text-sm tracking-wide font-medium text-slate-600 hover:text-blue-800 transition-colors">Results</a>
@@ -31,13 +35,22 @@ export default function LandingPage() {
             <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#007c95]/5 rounded-full blur-[100px] -ml-48 -mb-48" />
           </div>
           <div className="relative z-10 max-w-4xl text-center space-y-8">
+            <div className="flex justify-center">
+              <Image
+                src="/grantme-logo.png"
+                alt="GrantMe logo"
+                width={220}
+                height={220}
+                className="h-44 w-44 md:h-56 md:w-56 object-contain drop-shadow-[0_8px_20px_rgba(0,93,144,0.15)] contrast-125 saturate-150"
+              />
+            </div>
             <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-[#005d90] text-[10px] uppercase tracking-widest font-bold">
               <Sparkles className="w-3 h-3 mr-2" />
               AI-Powered Grant Discovery
             </div>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-              Spend time on your degree
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#005d90] to-[#0077b6]">, not your applications.</span>
+              Spend time on your degree,{" "}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#005d90] to-[#0077b6]">not your applications.</span>
             </h1>
             <p className="text-lg md:text-xl text-[#475569] max-w-2xl mx-auto leading-relaxed">
               GrantMe helps Canadian university students automatically find
