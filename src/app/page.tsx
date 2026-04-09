@@ -36,8 +36,8 @@ export default function LandingPage() {
               AI-Powered Grant Discovery
             </div>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-              Turn Your Research Into{" "}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#005d90] to-[#0077b6]">Funded Reality.</span>
+              Spend time on your degree
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#005d90] to-[#0077b6]">, not your applications.</span>
             </h1>
             <p className="text-lg md:text-xl text-[#475569] max-w-2xl mx-auto leading-relaxed">
               GrantMe helps Canadian university students automatically find

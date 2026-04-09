@@ -172,18 +172,20 @@ export default function SavedGrantsPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sorted.map((item) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                onClick={() => setSelectedId(item.id)}
                 className={`text-left bg-white border rounded-[1.5rem] p-6 shadow-sm transition-all ${
                   selectedId === item.id
                     ? "border-[#005d90] ring-2 ring-[#005d90]/15"
                     : "border-slate-200 hover:border-[#005d90]/30"
-                }`}
+                } relative`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(item.id)}
+                  className="w-full text-left"
+                >
+                  <div className="min-w-0 pr-14">
                     <p className="text-[10px] uppercase tracking-widest font-bold text-[#005d90] mb-2">
                       Saved
                     </p>
@@ -209,22 +211,19 @@ export default function SavedGrantsPage() {
                       )}
                     </div>
                   </div>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSaved(item);
-                    }}
-                    disabled={removingId === item.id}
-                    className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-60"
-                    aria-label="Remove saved grant"
-                    title="Remove"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => removeSaved(item)}
+                  disabled={removingId === item.id}
+                  className="absolute top-4 right-4 p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-60"
+                  aria-label="Remove saved grant"
+                  title="Remove"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
 

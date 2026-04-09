@@ -278,7 +278,7 @@ export default function DashboardPage() {
                     <input
                       type="text"
                       className="w-full bg-slate-50 border-none rounded-xl py-4 px-5 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#005d90]/30 transition-all"
-                      placeholder="e.g. Ray"
+                      placeholder="e.g. Steve"
                       value={profile.firstName}
                       onChange={(e) => updateField("firstName", e.target.value)}
                     />
@@ -290,7 +290,7 @@ export default function DashboardPage() {
                     <input
                       type="text"
                       className="w-full bg-slate-50 border-none rounded-xl py-4 px-5 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#005d90]/30 transition-all"
-                      placeholder="e.g. Patel"
+                      placeholder="e.g. Jobs"
                       value={profile.lastName}
                       onChange={(e) => updateField("lastName", e.target.value)}
                     />

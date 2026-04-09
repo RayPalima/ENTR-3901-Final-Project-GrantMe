@@ -91,9 +91,12 @@ export function DashboardShell({
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <h3 className="text-xs uppercase tracking-widest font-semibold text-blue-900">
+                <Link
+                  href="/dashboard"
+                  className="text-xs uppercase tracking-widest font-semibold text-blue-900 hover:text-[#005d90] transition-colors"
+                >
                   GrantMe
-                </h3>
+                </Link>
               </div>
             )}
           </div>
